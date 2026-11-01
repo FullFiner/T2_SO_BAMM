@@ -4,6 +4,7 @@
 #include <string>
 #include <random>
 #include "config.hpp"
+#include "tablero.hpp"
 
 
 static void uso(const char* prog) {
@@ -53,6 +54,16 @@ int main(int argc, char** argv) {
     std::cout << "Retardo: " << cfg.delay_min_ms << "-" << cfg.delay_max_ms << " ms\n";
     std::cout << "Seed: " << cfg.seed << "\n";
     std::cout << "Max movimientos: " << cfg.max_movimientos << "\n";
+
+    const Topologia& topo = topologia();
+    int aristas = 0;
+    int saltos = 0;
+    for (int i = 0; i < NUM_NODOS; i++) {
+        aristas += static_cast<int>(topo.vecinos[i].size());
+        saltos += static_cast<int>(topo.saltos[i].size());
+    }
+    std::cout << "Nodos: " << NUM_NODOS << ", aristas: " << aristas / 2
+              << ", saltos: " << saltos << "\n";
 
     return 0;
 }
