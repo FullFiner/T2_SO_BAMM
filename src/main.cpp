@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <random>
+#include "config.hpp"
 
 
 static void uso(const char* prog) {
@@ -37,13 +39,20 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::string config = (argc == 4) ? argv[3] : "";
+    std::string ruta = (argc == 4) ? argv[3] : "";
 
-    std::cout << "Jugadores: " << n << ", mesas: " << m;
-    if (!config.empty()) {
-        std::cout << ", config: " << config;
+    Config cfg;
+    if (!ruta.empty() && !cargar_config(ruta, cfg)) {
+        return 1;
     }
-    std::cout << "\n";
+    if (!cfg.tiene_seed) {
+        cfg.seed = std::random_device{}();
+    }
+
+    std::cout << "Jugadores: " << n << ", mesas: " << m << "\n";
+    std::cout << "Retardo: " << cfg.delay_min_ms << "-" << cfg.delay_max_ms << " ms\n";
+    std::cout << "Seed: " << cfg.seed << "\n";
+    std::cout << "Max movimientos: " << cfg.max_movimientos << "\n";
 
     return 0;
 }
