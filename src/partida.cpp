@@ -29,7 +29,8 @@ static void registrar(Partida& p, const std::string& texto) {
     std::string linea = "[mesa " + std::to_string(p.id_mesa) + " | mov " +
                         std::to_string(p.movimientos) + "] " + texto + "\n";
     if (p.movimientos % TABLERO_CADA == 0) {
-        linea += dibujar(p.estado);
+        linea += "[mesa " + std::to_string(p.id_mesa) + " | tablero tras mov " +
+                 std::to_string(p.movimientos) + "]\n" + dibujar(p.estado);
     }
     registro_escribir(linea);
 }
