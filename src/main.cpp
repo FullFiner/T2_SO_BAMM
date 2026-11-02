@@ -5,6 +5,7 @@
 #include <random>
 #include "config.hpp"
 #include "tablero.hpp"
+#include "juego.hpp"
 
 
 static void uso(const char* prog) {
@@ -65,5 +66,11 @@ int main(int argc, char** argv) {
     std::cout << "Nodos: " << NUM_NODOS << ", aristas: " << aristas / 2
               << ", saltos: " << saltos << "\n";
 
+
+    Estado estado;
+    inicializar(estado);
+    std::cout << "\nTablero inicial:\n" << dibujar(estado);
+
+    
     return 0;
 }
