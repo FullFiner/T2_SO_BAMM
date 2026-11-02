@@ -10,7 +10,7 @@ constexpr int CAPTURAS_PARA_GANAR = 6;
 
 enum class Celda { VACIA, PUMA, PERRO };
 
-enum class Resultado { EN_CURSO, GANA_PUMA, GANAN_PERROS };
+enum class Resultado { EN_CURSO, GANA_PUMA, GANAN_PERROS, EMPATE };
 
 
 struct Estado {

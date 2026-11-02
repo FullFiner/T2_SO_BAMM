@@ -5,7 +5,7 @@
 #include <random>
 #include "config.hpp"
 #include "tablero.hpp"
-#include "juego.hpp"
+#include "partida.hpp"
 
 
 static void uso(const char* prog) {
@@ -67,9 +67,10 @@ int main(int argc, char** argv) {
               << ", saltos: " << saltos << "\n";
 
 
-    Estado estado;
-    inicializar(estado);
-    std::cout << "\nTablero inicial:\n" << dibujar(estado);
+    Partida partida;
+    partida_iniciar(partida, cfg, 0);
+    partida_jugar(partida);
+    partida_destruir(partida);
 
     
     return 0;

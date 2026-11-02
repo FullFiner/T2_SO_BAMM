@@ -1,0 +1,201 @@
+#include "partida.hpp"
+
+#include <chrono>
+#include <iostream>
+#include <random>
+#include <string>
+#include <thread>
+#include <vector>
+
+
+struct ArgsFicha {
+    Partida* partida;
+    int id;
+};
+
+
+static const char* nombre(Resultado r) {
+    switch (r) {
+        case Resultado::GANA_PUMA:    return "gana el Puma (captura 6 perros)";
+        case Resultado::GANAN_PERROS: return "ganan los Perros (Puma acorralado)";
+        case Resultado::EMPATE:       return "empate (maximo de movimientos)";
+        default:                      return "en curso";
+    }
+}
+
+
+static int azar(std::mt19937& rng, int minimo, int maximo) {
+    return std::uniform_int_distribution<int>(minimo, maximo)(rng);
+}
+
+
+// Las funciones de abajo se llaman siempre con p.candado tomado.
+
+static void registrar(Partida& p, const std::string& texto) {
+    p.movimientos++;
+    std::cout << "[mesa " << p.id_mesa << " | mov " << p.movimientos << "] " << texto << "\n";
+    if (p.movimientos % TABLERO_CADA == 0) {
+        std::cout << dibujar(p.estado);
+    }
+}
+
+
+static void terminar(Partida& p, Resultado r) {
+    if (!p.terminada) {
+        p.terminada = true;
+        p.resultado = r;
+    }
+}
+
+
+static void turno_perro(Partida& p, int id, std::mt19937& rng) {
+    int origen = p.pos[id];
+    std::vector<int> libres;
+    for (int v : topologia().vecinos[origen]) {
+        if (p.estado.celdas[v] == Celda::VACIA) {
+            libres.push_back(v);
+        }
+    }
+    if (libres.empty()) {
+        return;
+    }
+    int destino = libres[azar(rng, 0, static_cast<int>(libres.size()) - 1)];
+    if (mover(p.estado, origen, destino)) {
+        p.pos[id] = destino;
+        registrar(p, "perro " + std::to_string(id) + ": " +
+                         std::to_string(origen) + " -> " + std::to_string(destino));
+    }
+}
+
+
+static void turno_puma(Partida& p, std::mt19937& rng) {
+    const Topologia& t = topologia();
+    int origen = p.estado.pos_puma;
+
+    // Si puede capturar, captura.
+    std::vector<Salto> capturas;
+    for (const Salto& s : t.saltos[origen]) {
+        if (p.estado.celdas[s.sobre] == Celda::PERRO &&
+            p.estado.celdas[s.destino] == Celda::VACIA) {
+            capturas.push_back(s);
+        }
+    }
+    if (!capturas.empty()) {
+        Salto s = capturas[azar(rng, 0, static_cast<int>(capturas.size()) - 1)];
+        if (capturar(p.estado, origen, s.sobre, s.destino)) {
+            for (int i = 1; i < NUM_FICHAS; i++) {
+                if (p.viva[i] && p.pos[i] == s.sobre) {
+                    p.viva[i] = false;
+                    break;
+                }
+            }
+            registrar(p, "PUMA captura el perro de " + std::to_string(s.sobre) +
+                             " (" + std::to_string(origen) + " -> " + std::to_string(s.destino) + ")");
+        }
+        return;
+    }
+
+    // Si no, se mueve a un vecino libre.
+    std::vector<int> libres;
+    for (int v : t.vecinos[origen]) {
+        if (p.estado.celdas[v] == Celda::VACIA) {
+            libres.push_back(v);
+        }
+    }
+    if (libres.empty()) {
+        return;
+    }
+    int destino = libres[azar(rng, 0, static_cast<int>(libres.size()) - 1)];
+    if (mover(p.estado, origen, destino)) {
+        registrar(p, "PUMA: " + std::to_string(origen) + " -> " + std::to_string(destino));
+    }
+}
+
+
+// Cada ficha es un hilo: espera un retardo al azar, toma el candado, intenta
+// su jugada, revisa si la partida terminó y suelta el candado.
+static void* hilo_ficha(void* arg) {
+    ArgsFicha* a = static_cast<ArgsFicha*>(arg);
+    Partida& p = *a->partida;
+    int id = a->id;
+    std::mt19937 rng(p.cfg.seed + 1000u * static_cast<unsigned>(p.id_mesa) + static_cast<unsigned>(id));
+
+    while (true) {
+        int espera = azar(rng, p.cfg.delay_min_ms, p.cfg.delay_max_ms);
+        std::this_thread::sleep_for(std::chrono::milliseconds(espera));
+
+        pthread_mutex_lock(&p.candado);
+        if (p.terminada || (id != 0 && !p.viva[id])) {
+            pthread_mutex_unlock(&p.candado);
+            break;
+        }
+
+        if (id == 0) {
+            turno_puma(p, rng);
+        } else {
+            turno_perro(p, id, rng);
+        }
+
+        Resultado r = evaluar(p.estado);
+        if (r != Resultado::EN_CURSO) {
+            terminar(p, r);
+        } else if (p.movimientos >= p.cfg.max_movimientos) {
+            terminar(p, Resultado::EMPATE);
+        }
+        pthread_mutex_unlock(&p.candado);
+    }
+    return nullptr;
+}
+
+
+void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
+    p.cfg = cfg;
+    p.id_mesa = id_mesa;
+    p.terminada = false;
+    p.resultado = Resultado::EN_CURSO;
+    p.movimientos = 0;
+    inicializar(p.estado);
+
+    p.pos.fill(-1);
+    p.viva.fill(false);
+    int nodo = 13;
+    for (int i = 1; i < NUM_FICHAS; i++) {
+        p.pos[i] = nodo++;
+        p.viva[i] = true;
+    }
+    pthread_mutex_init(&p.candado, nullptr);
+}
+
+
+Resultado partida_jugar(Partida& p) {
+    std::cout << "[mesa " << p.id_mesa << "] Comienza la partida\n" << dibujar(p.estado);
+
+    pthread_t hilos[NUM_FICHAS];
+    ArgsFicha args[NUM_FICHAS];
+    int creados = 0;
+
+    for (int i = 0; i < NUM_FICHAS; i++) {
+        args[i] = {&p, i};
+        if (pthread_create(&hilos[i], nullptr, hilo_ficha, &args[i]) != 0) {
+            std::cerr << "Error: no se pudo crear el hilo de la ficha " << i << "\n";
+            pthread_mutex_lock(&p.candado);
+            terminar(p, Resultado::EMPATE);
+            pthread_mutex_unlock(&p.candado);
+            break;
+        }
+        creados++;
+    }
+
+    for (int i = 0; i < creados; i++) {
+        pthread_join(hilos[i], nullptr);
+    }
+
+    std::cout << "[mesa " << p.id_mesa << "] Fin: " << nombre(p.resultado)
+              << " tras " << p.movimientos << " movimientos\n" << dibujar(p.estado);
+    return p.resultado;
+}
+
+
+void partida_destruir(Partida& p) {
+    pthread_mutex_destroy(&p.candado);
+}
