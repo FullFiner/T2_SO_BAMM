@@ -5,7 +5,8 @@
 #include <random>
 #include "config.hpp"
 #include "tablero.hpp"
-#include "partida.hpp"
+#include "juez.hpp"
+#include "registro.hpp"
 
 
 static void uso(const char* prog) {
@@ -67,10 +68,14 @@ int main(int argc, char** argv) {
               << ", saltos: " << saltos << "\n";
 
 
-    Partida partida;
-    partida_iniciar(partida, cfg, 0);
-    partida_jugar(partida);
-    partida_destruir(partida);
+        if (!registro_abrir("torneo.log", cfg.log_consola)) {
+        std::cerr << "Error: no se pudo abrir torneo.log\n";
+        return 1;
+    }
+
+    juez_mesa(0, cfg);
+
+    registro_cerrar();
 
     
     return 0;

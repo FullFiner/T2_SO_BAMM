@@ -3,3 +3,4 @@ delay_min_ms=50
 delay_max_ms=300
 seed=12345
 max_movimientos=2000
+log_consola=1

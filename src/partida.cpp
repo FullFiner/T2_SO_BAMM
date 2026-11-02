@@ -6,7 +6,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-
+#include "registro.hpp"
 
 struct ArgsFicha {
     Partida* partida;
@@ -14,14 +14,7 @@ struct ArgsFicha {
 };
 
 
-static const char* nombre(Resultado r) {
-    switch (r) {
-        case Resultado::GANA_PUMA:    return "gana el Puma (captura 6 perros)";
-        case Resultado::GANAN_PERROS: return "ganan los Perros (Puma acorralado)";
-        case Resultado::EMPATE:       return "empate (maximo de movimientos)";
-        default:                      return "en curso";
-    }
-}
+
 
 
 static int azar(std::mt19937& rng, int minimo, int maximo) {
@@ -33,10 +26,12 @@ static int azar(std::mt19937& rng, int minimo, int maximo) {
 
 static void registrar(Partida& p, const std::string& texto) {
     p.movimientos++;
-    std::cout << "[mesa " << p.id_mesa << " | mov " << p.movimientos << "] " << texto << "\n";
+    std::string linea = "[mesa " + std::to_string(p.id_mesa) + " | mov " +
+                        std::to_string(p.movimientos) + "] " + texto + "\n";
     if (p.movimientos % TABLERO_CADA == 0) {
-        std::cout << dibujar(p.estado);
+        linea += dibujar(p.estado);
     }
+    registro_escribir(linea);
 }
 
 
@@ -168,8 +163,6 @@ void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
 
 
 Resultado partida_jugar(Partida& p) {
-    std::cout << "[mesa " << p.id_mesa << "] Comienza la partida\n" << dibujar(p.estado);
-
     pthread_t hilos[NUM_FICHAS];
     ArgsFicha args[NUM_FICHAS];
     int creados = 0;
@@ -190,8 +183,7 @@ Resultado partida_jugar(Partida& p) {
         pthread_join(hilos[i], nullptr);
     }
 
-    std::cout << "[mesa " << p.id_mesa << "] Fin: " << nombre(p.resultado)
-              << " tras " << p.movimientos << " movimientos\n" << dibujar(p.estado);
+    
     return p.resultado;
 }
 

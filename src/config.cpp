@@ -47,6 +47,11 @@ static bool asignar(const std::string& clave, const std::string& valor, Config& 
         cfg.tiene_seed = true;
     } else if (clave == "max_movimientos") {
         cfg.max_movimientos = static_cast<int>(v);
+    } else if (clave == "log_consola") {
+        if (v != 0 && v != 1) {
+            return false;
+        }
+        cfg.log_consola = (v == 1);
     } else {
         return false;
     }

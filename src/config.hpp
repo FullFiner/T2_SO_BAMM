@@ -8,6 +8,7 @@ struct Config {
     unsigned int seed = 0;
     bool tiene_seed = false;
     int max_movimientos = 2000;
+    bool log_consola = true;
 };
 
 bool cargar_config(const std::string& ruta, Config& cfg);
