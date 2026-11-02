@@ -1,20 +1,18 @@
 #include <cerrno>
 #include <cstdlib>
 #include <iostream>
-#include <string>
 #include <random>
-#include "config.hpp"
-#include "tablero.hpp"
-#include "juez.hpp"
-#include "registro.hpp"
+#include <string>
 
+#include "config.hpp"
+#include "registro.hpp"
+#include "torneo.hpp"
 
 static void uso(const char* prog) {
     std::cerr << "Uso: " << prog << " N M [config.txt]\n"
               << "  N: numero total de jugadores\n"
               << "  M: maximo de mesas concurrentes\n";
 }
-
 
 static bool parsear_entero(const char* s, int& out) {
     char* fin = nullptr;
@@ -26,7 +24,6 @@ static bool parsear_entero(const char* s, int& out) {
     out = static_cast<int>(v);
     return true;
 }
-
 
 int main(int argc, char** argv) {
     if (argc < 3 || argc > 4) {
@@ -57,26 +54,13 @@ int main(int argc, char** argv) {
     std::cout << "Seed: " << cfg.seed << "\n";
     std::cout << "Max movimientos: " << cfg.max_movimientos << "\n";
 
-    const Topologia& topo = topologia();
-    int aristas = 0;
-    int saltos = 0;
-    for (int i = 0; i < NUM_NODOS; i++) {
-        aristas += static_cast<int>(topo.vecinos[i].size());
-        saltos += static_cast<int>(topo.saltos[i].size());
-    }
-    std::cout << "Nodos: " << NUM_NODOS << ", aristas: " << aristas / 2
-              << ", saltos: " << saltos << "\n";
-
-
-        if (!registro_abrir("torneo.log", cfg.log_consola)) {
+    if (!registro_abrir("torneo.log", cfg.log_consola)) {
         std::cerr << "Error: no se pudo abrir torneo.log\n";
         return 1;
     }
 
-    juez_mesa(0, cfg);
+    torneo_ejecutar(n, m, cfg);
 
     registro_cerrar();
-
-    
     return 0;
 }

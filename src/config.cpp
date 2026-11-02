@@ -47,6 +47,8 @@ static bool asignar(const std::string& clave, const std::string& valor, Config& 
         cfg.tiene_seed = true;
     } else if (clave == "max_movimientos") {
         cfg.max_movimientos = static_cast<int>(v);
+    } else if (clave == "llegada_max_ms") {
+        cfg.llegada_max_ms = static_cast<int>(v);
     } else if (clave == "log_consola") {
         if (v != 0 && v != 1) {
             return false;
@@ -96,5 +98,10 @@ bool cargar_config(const std::string& ruta, Config& cfg) {
         std::cerr << "Error: max_movimientos debe ser positivo\n";
         return false;
     }
+    if (cfg.llegada_max_ms < 0) {
+    std::cerr << "Error: llegada_max_ms no puede ser negativo\n";
+    return false;
+    }
+
     return true;
 }
