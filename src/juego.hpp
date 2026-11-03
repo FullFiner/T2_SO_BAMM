@@ -10,8 +10,8 @@ constexpr int CAPTURAS_PARA_GANAR = 6;
 
 enum class Celda { VACIA, PUMA, PERRO };
 
-enum class Resultado { EN_CURSO, GANA_PUMA, GANAN_PERROS, EMPATE, INTERRUMPIDA };
-
+enum class Resultado { EN_CURSO, GANA_PUMA, GANAN_PERROS, EMPATE, INTERRUMPIDA,
+                       PUMA_ABANDONA, PERROS_ABANDONAN };
 
 struct Estado {
     std::array<Celda, NUM_NODOS> celdas;
@@ -20,18 +20,14 @@ struct Estado {
     int capturas = 0;
 };
 
-
 void inicializar(Estado& e);
-
 
 bool mover(Estado& e, int origen, int destino);
 
 bool capturar(Estado& e, int origen, int sobre, int destino);
 
-
 bool puma_acorralado(const Estado& e);
 
 Resultado evaluar(const Estado& e);
-
 
 std::string dibujar(const Estado& e);

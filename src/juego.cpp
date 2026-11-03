@@ -3,17 +3,14 @@
 #include <algorithm>
 #include <sstream>
 
-
 static bool nodo_valido(int n) {
     return n >= 0 && n < NUM_NODOS;
 }
-
 
 static bool son_vecinos(int a, int b) {
     const std::vector<int>& v = topologia().vecinos[a];
     return std::find(v.begin(), v.end(), b) != v.end();
 }
-
 
 static bool salto_permitido(int origen, int sobre, int destino) {
     for (const Salto& s : topologia().saltos[origen]) {
@@ -23,7 +20,6 @@ static bool salto_permitido(int origen, int sobre, int destino) {
     }
     return false;
 }
-
 
 void inicializar(Estado& e) {
     e.celdas.fill(Celda::VACIA);
@@ -35,7 +31,6 @@ void inicializar(Estado& e) {
     e.perros_vivos = NUM_PERROS;
     e.capturas = 0;
 }
-
 
 bool mover(Estado& e, int origen, int destino) {
     if (!nodo_valido(origen) || !nodo_valido(destino)) {
@@ -54,7 +49,6 @@ bool mover(Estado& e, int origen, int destino) {
     e.celdas[origen] = Celda::VACIA;
     return true;
 }
-
 
 bool capturar(Estado& e, int origen, int sobre, int destino) {
     if (!nodo_valido(origen) || !nodo_valido(sobre) || !nodo_valido(destino)) {
@@ -78,7 +72,6 @@ bool capturar(Estado& e, int origen, int sobre, int destino) {
     return true;
 }
 
-
 bool puma_acorralado(const Estado& e) {
     const Topologia& t = topologia();
     int p = e.pos_puma;
@@ -95,7 +88,6 @@ bool puma_acorralado(const Estado& e) {
     return true;
 }
 
-
 Resultado evaluar(const Estado& e) {
     if (e.capturas >= CAPTURAS_PARA_GANAR) {
         return Resultado::GANA_PUMA;
@@ -106,7 +98,6 @@ Resultado evaluar(const Estado& e) {
     return Resultado::EN_CURSO;
 }
 
-
 static char simbolo(Celda c) {
     switch (c) {
         case Celda::PUMA:  return 'P';
@@ -114,7 +105,6 @@ static char simbolo(Celda c) {
         default:           return '.';
     }
 }
-
 
 std::string dibujar(const Estado& e) {
     auto s = [&e](int n) { return simbolo(e.celdas[n]); };

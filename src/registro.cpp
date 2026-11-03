@@ -5,12 +5,9 @@
 #include <fstream>
 #include <iostream>
 
-
-
 static pthread_mutex_t candado = PTHREAD_MUTEX_INITIALIZER;
 static std::ofstream archivo;
 static bool con_consola = false;
-
 
 bool registro_abrir(const std::string& ruta, bool consola) {
     pthread_mutex_lock(&candado);
@@ -20,7 +17,6 @@ bool registro_abrir(const std::string& ruta, bool consola) {
     pthread_mutex_unlock(&candado);
     return ok;
 }
-
 
 void registro_escribir(const std::string& texto) {
     pthread_mutex_lock(&candado);
@@ -34,7 +30,6 @@ void registro_escribir(const std::string& texto) {
     }
     pthread_mutex_unlock(&candado);
 }
-
 
 void registro_cerrar() {
     pthread_mutex_lock(&candado);

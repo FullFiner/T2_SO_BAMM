@@ -1,0 +1,8 @@
+# Prueba de abandono: en todas las mesas un jugador se cae a mitad de partida
+delay_min_ms=5
+delay_max_ms=20
+llegada_max_ms=20
+seed=777
+max_movimientos=200
+log_consola=1
+prob_abandono=100

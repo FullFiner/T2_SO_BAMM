@@ -1,5 +1,6 @@
 #include "partida.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cerrno>
 #include <ctime>
@@ -15,16 +16,9 @@ struct ArgsFicha {
     int id;
 };
 
-
-
-
-
 static int azar(std::mt19937& rng, int minimo, int maximo) {
     return std::uniform_int_distribution<int>(minimo, maximo)(rng);
 }
-
-
-// Las funciones de abajo se llaman siempre con p.candado tomado.
 
 static void registrar(Partida& p, const std::string& texto) {
     p.movimientos++;
@@ -36,7 +30,6 @@ static void registrar(Partida& p, const std::string& texto) {
     }
     registro_escribir(linea);
 }
-
 
 static void terminar(Partida& p, Resultado r) {
     if (!p.terminada) {
@@ -62,7 +55,6 @@ static void esperar_turno(Partida& p, int ms) {
     }
 }
 
-
 static void turno_perro(Partida& p, int id, std::mt19937& rng) {
     int origen = p.pos[id];
     std::vector<int> libres;
@@ -82,12 +74,10 @@ static void turno_perro(Partida& p, int id, std::mt19937& rng) {
     }
 }
 
-
 static void turno_puma(Partida& p, std::mt19937& rng) {
     const Topologia& t = topologia();
     int origen = p.estado.pos_puma;
 
-    // Si puede capturar, captura.
     std::vector<Salto> capturas;
     for (const Salto& s : t.saltos[origen]) {
         if (p.estado.celdas[s.sobre] == Celda::PERRO &&
@@ -110,7 +100,6 @@ static void turno_puma(Partida& p, std::mt19937& rng) {
         return;
     }
 
-    // Si no, se mueve a un vecino libre.
     std::vector<int> libres;
     for (int v : t.vecinos[origen]) {
         if (p.estado.celdas[v] == Celda::VACIA) {
@@ -126,14 +115,26 @@ static void turno_puma(Partida& p, std::mt19937& rng) {
     }
 }
 
+static void ficha_cayo(void* arg) {
+    ArgsFicha* a = static_cast<ArgsFicha*>(arg);
+    Partida& p = *a->partida;
+    bool es_puma = (a->id == 0);
 
+    registro_escribir("[mesa " + std::to_string(p.id_mesa) + "] el jugador " +
+                      (es_puma ? "del Puma" : "de los Perros") + " se cae (la ficha " +
+                      std::to_string(a->id) + " murio con el candado tomado)\n");
+    terminar(p, es_puma ? Resultado::PUMA_ABANDONA : Resultado::PERROS_ABANDONAN);
+    pthread_mutex_unlock(&p.candado);
+}
 
 static void* hilo_ficha(void* arg) {
     ArgsFicha* a = static_cast<ArgsFicha*>(arg);
     Partida& p = *a->partida;
     int id = a->id;
+    int lado = (id == 0) ? 0 : 1;
     std::mt19937 rng(p.cfg.seed + 1000u * static_cast<unsigned>(p.id_mesa) + static_cast<unsigned>(id));
 
+    pthread_cleanup_push(ficha_cayo, a);
     pthread_mutex_lock(&p.candado);
     while (true) {
         int espera = azar(rng, p.cfg.delay_min_ms, p.cfg.delay_max_ms);
@@ -141,6 +142,10 @@ static void* hilo_ficha(void* arg) {
 
         if (p.terminada || (id != 0 && !p.viva[id])) {
             break;
+        }
+
+        if (p.lado_caido == lado && p.movimientos >= p.mov_caida) {
+            pthread_exit(nullptr);
         }
 
         if (id == 0) {
@@ -157,9 +162,9 @@ static void* hilo_ficha(void* arg) {
         }
     }
     pthread_mutex_unlock(&p.candado);
+    pthread_cleanup_pop(0);
     return nullptr;
 }
-
 
 void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
     p.cfg = cfg;
@@ -169,6 +174,17 @@ void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
     p.resultado = Resultado::EN_CURSO;
     p.movimientos = 0;
     inicializar(p.estado);
+
+    p.lado_caido = -1;
+    p.mov_caida = 0;
+    int tope = std::min(40, cfg.max_movimientos - 1);
+    if (cfg.prob_abandono > 0 && tope >= 1) {
+        std::mt19937 rng_caida(cfg.seed + 5003u * static_cast<unsigned>(id_mesa) + 17u);
+        if (azar(rng_caida, 1, 100) <= cfg.prob_abandono) {
+            p.lado_caido = azar(rng_caida, 0, 1);
+            p.mov_caida = azar(rng_caida, 1, tope);
+        }
+    }
 
     p.pos.fill(-1);
     p.viva.fill(false);
@@ -184,7 +200,6 @@ void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
     pthread_cond_init(&p.cambio, &attr);
     pthread_condattr_destroy(&attr);
 }
-
 
 Resultado partida_jugar(Partida& p) {
     pthread_t hilos[NUM_FICHAS];
@@ -228,9 +243,11 @@ void partida_interrumpir(Partida& p) {
     pthread_mutex_unlock(&p.candado);
 }
 
-
-
 void partida_destruir(Partida& p) {
     pthread_cond_destroy(&p.cambio);
-    pthread_mutex_destroy(&p.candado);
+
+    if (pthread_mutex_destroy(&p.candado) != 0) {
+        std::cerr << "Error: la mesa " << p.id_mesa
+                  << " no pudo destruir su candado porque seguia tomado\n";
+    }
 }

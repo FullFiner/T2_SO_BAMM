@@ -9,10 +9,6 @@
 #include "registro.hpp"
 #include "torneo.hpp"
 
-// Cada jugador es un hilo y cada mesa usa 14 (juez + 13 fichas). Linux suele
-// permitir unos 32000 hilos por proceso, asi que en el peor caso
-// (10000 jugadores + 1000 mesas * 14 = 24000 hilos) aun queda margen.
-// Mas alla de esto el sistema empieza a rechazar hilos.
 constexpr int MAX_JUGADORES = 10000;
 constexpr int MAX_MESAS = 1000;
 
@@ -34,8 +30,7 @@ static bool parsear_entero(const char* s, int maximo, int& out) {
 }
 
 int main(int argc, char** argv) {
-    // Si la salida se corta (por ejemplo: ./torneo 10 2 | head), escribir en
-    // pantalla no debe matar el programa: el torneo sigue y cierra ordenado.
+
     std::signal(SIGPIPE, SIG_IGN);
 
     if (argc < 3 || argc > 4) {

@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstddef>
 
-
 static std::vector<std::vector<int>> lineas() {
     std::vector<std::vector<int>> l;
 
@@ -36,7 +35,6 @@ static std::vector<std::vector<int>> lineas() {
     return l;
 }
 
-
 static void agregar_vecino(Topologia& t, int a, int b) {
     if (std::find(t.vecinos[a].begin(), t.vecinos[a].end(), b) == t.vecinos[a].end()) {
         t.vecinos[a].push_back(b);
@@ -45,7 +43,6 @@ static void agregar_vecino(Topologia& t, int a, int b) {
         t.vecinos[b].push_back(a);
     }
 }
-
 
 static Topologia construir() {
     Topologia t;
@@ -63,7 +60,6 @@ static Topologia construir() {
     }
     return t;
 }
-
 
 const Topologia& topologia() {
     static const Topologia t = construir();

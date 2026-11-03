@@ -5,3 +5,5 @@ llegada_max_ms=200
 seed=12345
 max_movimientos=2000
 log_consola=1
+# Porcentaje de mesas donde un jugador se cae a mitad de partida (0 a 100)
+prob_abandono=0

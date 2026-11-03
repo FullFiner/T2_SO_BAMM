@@ -25,6 +25,9 @@ struct Partida {
     Resultado resultado = Resultado::EN_CURSO;
     int movimientos = 0;
     int id_mesa = 0;
+
+    int lado_caido = -1;
+    int mov_caida = 0;
 };
 
 void partida_iniciar(Partida& p, const Config& cfg, int id_mesa);

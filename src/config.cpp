@@ -7,7 +7,6 @@
 #include <fstream>
 #include <iostream>
 
-
 static std::string recortar(const std::string& s) {
     const char* espacios = " \t\r\n";
     std::size_t ini = s.find_first_not_of(espacios);
@@ -17,7 +16,6 @@ static std::string recortar(const std::string& s) {
     std::size_t fin = s.find_last_not_of(espacios);
     return s.substr(ini, fin - ini + 1);
 }
-
 
 static bool a_entero(const std::string& s, long& out) {
     char* fin = nullptr;
@@ -30,15 +28,12 @@ static bool a_entero(const std::string& s, long& out) {
     return true;
 }
 
-
 static bool asignar(const std::string& clave, const std::string& valor, Config& cfg) {
     long v = 0;
     if (!a_entero(valor, v)) {
         return false;
     }
-    // Ningun parametro puede ser negativo ni pasarse de lo que cabe en su
-    // variable. Sin este control, un valor como 99999999999 se "da vuelta" en
-    // silencio y se convierte en otro numero (por ejemplo, 14 dias de retardo).
+
     long tope = (clave == "seed") ? static_cast<long>(UINT_MAX) : static_cast<long>(INT_MAX);
     if (v < 0 || v > tope) {
         return false;
@@ -57,6 +52,11 @@ static bool asignar(const std::string& clave, const std::string& valor, Config& 
         cfg.max_movimientos = static_cast<int>(v);
     } else if (clave == "llegada_max_ms") {
         cfg.llegada_max_ms = static_cast<int>(v);
+    } else if (clave == "prob_abandono") {
+        if (v > 100) {
+            return false;
+        }
+        cfg.prob_abandono = static_cast<int>(v);
     } else if (clave == "log_consola") {
         if (v != 0 && v != 1) {
             return false;
@@ -67,7 +67,6 @@ static bool asignar(const std::string& clave, const std::string& valor, Config& 
     }
     return true;
 }
-
 
 bool cargar_config(const std::string& ruta, Config& cfg) {
     std::ifstream archivo(ruta);

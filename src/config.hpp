@@ -10,6 +10,7 @@ struct Config {
     int max_movimientos = 2000;
     bool log_consola = true;
     int llegada_max_ms = 200;
+    int prob_abandono = 0;
 };
 
 bool cargar_config(const std::string& ruta, Config& cfg);

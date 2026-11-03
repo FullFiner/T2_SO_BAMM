@@ -34,6 +34,7 @@ struct Servidor {
     int activas = 0;
     int pico = 0;
     int jugadas = 0;
+    int abandonos = 0;
     bool apagado = false;
     std::deque<int> cola;
     std::vector<Partida*> en_juego;
@@ -136,12 +137,26 @@ static void* hilo_mesa(void* arg) {
     registro_escribir("[mesa " + std::to_string(m->id_mesa) + "] jugador " +
                       std::to_string(m->puma->id) + " (Puma) vs jugador " +
                       std::to_string(m->perros->id) + " (Perros)\n");
-    juez_arbitrar(m->partida);
+    Resultado r = juez_arbitrar(m->partida);
+
+    bool abandono = (r == Resultado::PUMA_ABANDONA || r == Resultado::PERROS_ABANDONAN);
+    if (abandono) {
+        bool cayo_puma = (r == Resultado::PUMA_ABANDONA);
+        Jugador* cae = cayo_puma ? m->puma : m->perros;
+        Jugador* gana = cayo_puma ? m->perros : m->puma;
+        registro_escribir("[mesa " + std::to_string(m->id_mesa) + "] jugador " +
+                          std::to_string(cae->id) + (cayo_puma ? " (Puma)" : " (Perros)") +
+                          " abandona: gana por abandono el jugador " + std::to_string(gana->id) +
+                          (cayo_puma ? " (Perros)" : " (Puma)") + "\n");
+    }
 
     pthread_mutex_lock(&s.candado);
     s.en_juego.erase(std::find(s.en_juego.begin(), s.en_juego.end(), &m->partida));
     s.activas--;
     s.jugadas++;
+    if (abandono) {
+        s.abandonos++;
+    }
     pthread_mutex_unlock(&s.candado);
 
     juez_cerrar(m->partida);
@@ -266,7 +281,8 @@ void torneo_ejecutar(int n, int m, const Config& cfg) {
     senales_detener();
 
     registro_escribir(std::string(s.apagado ? "Torneo interrumpido: " : "Torneo finalizado: ") +
-                      std::to_string(s.jugadas) + " partidas, pico de mesas simultaneas " +
+                      std::to_string(s.jugadas) + " partidas (" + std::to_string(s.abandonos) +
+                      " por abandono), pico de mesas simultaneas " +
                       std::to_string(s.pico) + " (maximo " + std::to_string(m) + ")\n");
 
     for (int i = 0; i < n; i++) {
