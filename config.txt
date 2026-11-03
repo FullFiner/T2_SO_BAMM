@@ -7,3 +7,5 @@ max_movimientos=2000
 log_consola=1
 # Porcentaje de mesas donde un jugador se cae a mitad de partida (0 a 100)
 prob_abandono=0
+puma=27
+perros=13,14,15,16,17,18,19,20,21,22,23,24

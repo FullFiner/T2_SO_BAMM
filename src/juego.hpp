@@ -2,6 +2,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 #include "tablero.hpp"
 
@@ -20,7 +21,7 @@ struct Estado {
     int capturas = 0;
 };
 
-void inicializar(Estado& e);
+void inicializar(Estado& e, int puma, const std::vector<int>& perros);
 
 bool mover(Estado& e, int origen, int destino);
 

@@ -173,7 +173,7 @@ void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
     p.interrumpida = false;
     p.resultado = Resultado::EN_CURSO;
     p.movimientos = 0;
-    inicializar(p.estado);
+    inicializar(p.estado, cfg.puma_inicial, cfg.perros_iniciales);
 
     p.lado_caido = -1;
     p.mov_caida = 0;
@@ -188,9 +188,8 @@ void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
 
     p.pos.fill(-1);
     p.viva.fill(false);
-    int nodo = 13;
     for (int i = 1; i < NUM_FICHAS; i++) {
-        p.pos[i] = nodo++;
+        p.pos[i] = cfg.perros_iniciales[i - 1];
         p.viva[i] = true;
     }
     pthread_mutex_init(&p.candado, nullptr);

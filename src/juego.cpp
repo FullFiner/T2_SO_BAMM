@@ -21,12 +21,12 @@ static bool salto_permitido(int origen, int sobre, int destino) {
     return false;
 }
 
-void inicializar(Estado& e) {
+void inicializar(Estado& e, int puma, const std::vector<int>& perros) {
     e.celdas.fill(Celda::VACIA);
-    for (int n = 13; n <= 24; n++) {
+    for (int n : perros) {
         e.celdas[n] = Celda::PERRO;
     }
-    e.pos_puma = NODO_TRONO;
+    e.pos_puma = puma;
     e.celdas[e.pos_puma] = Celda::PUMA;
     e.perros_vivos = NUM_PERROS;
     e.capturas = 0;

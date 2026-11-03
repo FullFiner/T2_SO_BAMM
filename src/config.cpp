@@ -6,6 +6,9 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <set>
+
+#include "juego.hpp"
 
 static std::string recortar(const std::string& s) {
     const char* espacios = " \t\r\n";
@@ -28,7 +31,29 @@ static bool a_entero(const std::string& s, long& out) {
     return true;
 }
 
+static bool a_lista(const std::string& s, std::vector<int>& out) {
+    out.clear();
+    std::size_t ini = 0;
+    while (true) {
+        std::size_t coma = s.find(',', ini);
+        std::string trozo = recortar(s.substr(ini, coma == std::string::npos ? std::string::npos : coma - ini));
+        long v = 0;
+        if (!a_entero(trozo, v) || v < 0 || v >= NUM_NODOS) {
+            return false;
+        }
+        out.push_back(static_cast<int>(v));
+        if (coma == std::string::npos) {
+            return true;
+        }
+        ini = coma + 1;
+    }
+}
+
+
 static bool asignar(const std::string& clave, const std::string& valor, Config& cfg) {
+    if (clave == "perros") {
+        return a_lista(valor, cfg.perros_iniciales);
+    }
     long v = 0;
     if (!a_entero(valor, v)) {
         return false;
@@ -52,6 +77,11 @@ static bool asignar(const std::string& clave, const std::string& valor, Config& 
         cfg.max_movimientos = static_cast<int>(v);
     } else if (clave == "llegada_max_ms") {
         cfg.llegada_max_ms = static_cast<int>(v);
+    } else if (clave == "puma") {
+        if (v >= NUM_NODOS) {
+            return false;
+        }
+        cfg.puma_inicial = static_cast<int>(v);
     } else if (clave == "prob_abandono") {
         if (v > 100) {
             return false;
@@ -103,6 +133,19 @@ bool cargar_config(const std::string& ruta, Config& cfg) {
     }
     if (cfg.max_movimientos <= 0) {
         std::cerr << "Error: max_movimientos debe ser positivo\n";
+        return false;
+    }
+    if (static_cast<int>(cfg.perros_iniciales.size()) != NUM_PERROS) {
+        std::cerr << "Error: 'perros' debe listar exactamente " << NUM_PERROS << " nodos\n";
+        return false;
+    }
+    std::set<int> ocupados(cfg.perros_iniciales.begin(), cfg.perros_iniciales.end());
+    if (static_cast<int>(ocupados.size()) != NUM_PERROS) {
+        std::cerr << "Error: 'perros' tiene nodos repetidos\n";
+        return false;
+    }
+    if (ocupados.count(cfg.puma_inicial) != 0) {
+        std::cerr << "Error: el puma y un perro empiezan en el mismo nodo (" << cfg.puma_inicial << ")\n";
         return false;
     }
     if (cfg.llegada_max_ms < 0) {

@@ -1,0 +1,8 @@
+delay_min_ms=5
+delay_max_ms=20
+llegada_max_ms=20
+seed=42
+max_movimientos=300
+log_consola=1
+puma=12
+perros=0,1,2,3,4,5,6,7,8,9,10,11
