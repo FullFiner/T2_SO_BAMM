@@ -1,6 +1,7 @@
 #include "config.hpp"
 
 #include <cerrno>
+#include <climits>
 #include <cstddef>
 #include <cstdlib>
 #include <fstream>
@@ -33,6 +34,13 @@ static bool a_entero(const std::string& s, long& out) {
 static bool asignar(const std::string& clave, const std::string& valor, Config& cfg) {
     long v = 0;
     if (!a_entero(valor, v)) {
+        return false;
+    }
+    // Ningun parametro puede ser negativo ni pasarse de lo que cabe en su
+    // variable. Sin este control, un valor como 99999999999 se "da vuelta" en
+    // silencio y se convierte en otro numero (por ejemplo, 14 dias de retardo).
+    long tope = (clave == "seed") ? static_cast<long>(UINT_MAX) : static_cast<long>(INT_MAX);
+    if (v < 0 || v > tope) {
         return false;
     }
     if (clave == "delay_min_ms") {
