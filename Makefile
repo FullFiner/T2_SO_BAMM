@@ -1,8 +1,9 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra -std=c++17 -pthread
+CXXFLAGS = -Wall -Wextra -std=c++17 -pthread -MMD -MP
 TARGET = torneo
 SRC = $(wildcard src/*.cpp)
 OBJ = $(SRC:src/%.cpp=build/%.o)
+DEP = $(OBJ:.o=.d)
 
 all: $(TARGET)
 
@@ -15,5 +16,7 @@ build/%.o: src/%.cpp
 
 clean:
 	rm -rf build $(TARGET)
+
+-include $(DEP)
 
 .PHONY: all clean

@@ -2,31 +2,33 @@
 
 #include <string>
 
-#include "partida.hpp"
 #include "registro.hpp"
-
 
 static const char* nombre(Resultado r) {
     switch (r) {
         case Resultado::GANA_PUMA:    return "gana el Puma (captura 6 perros)";
         case Resultado::GANAN_PERROS: return "ganan los Perros (Puma acorralado)";
         case Resultado::EMPATE:       return "empate (maximo de movimientos)";
+        case Resultado::INTERRUMPIDA: return "partida interrumpida por el servidor";
         default:                      return "en curso";
     }
 }
 
-
-Resultado juez_mesa(int id_mesa, const Config& cfg) {
-    std::string mesa = "[mesa " + std::to_string(id_mesa) + "] ";
-
-    Partida p;
+void juez_preparar(Partida& p, const Config& cfg, int id_mesa) {
     partida_iniciar(p, cfg, id_mesa);
+}
+
+Resultado juez_arbitrar(Partida& p) {
+    std::string mesa = "[mesa " + std::to_string(p.id_mesa) + "] ";
     registro_escribir(mesa + "Comienza la partida\n" + dibujar(p.estado));
 
     Resultado r = partida_jugar(p);
 
     registro_escribir(mesa + "Fin: " + nombre(r) + " tras " +
                       std::to_string(p.movimientos) + " movimientos\n" + dibujar(p.estado));
-    partida_destruir(p);
     return r;
+}
+
+void juez_cerrar(Partida& p) {
+    partida_destruir(p);
 }

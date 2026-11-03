@@ -40,6 +40,7 @@ static void terminar(Partida& p, Resultado r) {
     if (!p.terminada) {
         p.terminada = true;
         p.resultado = r;
+        pthread_cond_broadcast(&p.cambio);
     }
 }
 
@@ -148,6 +149,7 @@ void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
     p.cfg = cfg;
     p.id_mesa = id_mesa;
     p.terminada = false;
+    p.interrumpida = false;
     p.resultado = Resultado::EN_CURSO;
     p.movimientos = 0;
     inicializar(p.estado);
@@ -160,6 +162,7 @@ void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
         p.viva[i] = true;
     }
     pthread_mutex_init(&p.candado, nullptr);
+    pthread_cond_init(&p.cambio, nullptr);
 }
 
 
@@ -180,15 +183,34 @@ Resultado partida_jugar(Partida& p) {
         creados++;
     }
 
+    pthread_mutex_lock(&p.candado);
+    while (!p.terminada && !p.interrumpida) {
+        pthread_cond_wait(&p.cambio, &p.candado);
+    }
+    if (!p.terminada) {
+        terminar(p, Resultado::INTERRUMPIDA);
+    }
+    pthread_mutex_unlock(&p.candado);
+
     for (int i = 0; i < creados; i++) {
         pthread_join(hilos[i], nullptr);
     }
 
-    
     return p.resultado;
 }
 
+void partida_interrumpir(Partida& p) {
+    pthread_mutex_lock(&p.candado);
+    if (!p.terminada) {
+        p.interrumpida = true;
+        pthread_cond_broadcast(&p.cambio);
+    }
+    pthread_mutex_unlock(&p.candado);
+}
+
+
 
 void partida_destruir(Partida& p) {
+    pthread_cond_destroy(&p.cambio);
     pthread_mutex_destroy(&p.candado);
 }

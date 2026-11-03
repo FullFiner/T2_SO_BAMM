@@ -1,7 +1,10 @@
 #pragma once
 
 #include "config.hpp"
-#include "juego.hpp"
+#include "partida.hpp"
 
+void juez_preparar(Partida& p, const Config& cfg, int id_mesa);
 
-Resultado juez_mesa(int id_mesa, const Config& cfg);
+Resultado juez_arbitrar(Partida& p);
+
+void juez_cerrar(Partida& p);
