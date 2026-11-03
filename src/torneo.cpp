@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cerrno>
+#include <ctime>
 #include <deque>
 #include <random>
 #include <string>
@@ -37,6 +39,7 @@ struct Servidor {
     std::vector<Partida*> en_juego;
     pthread_mutex_t candado;
     pthread_cond_t llegada;
+    pthread_cond_t apagar;
     sem_t mesas;
 };
 
@@ -65,6 +68,7 @@ static void interrumpir(void* ctx) {
         partida_interrumpir(*p);
     }
     pthread_cond_broadcast(&s.llegada);
+    pthread_cond_broadcast(&s.apagar);
     pthread_mutex_unlock(&s.candado);
     sem_post(&s.mesas);
 }
@@ -74,12 +78,30 @@ static void* hilo_cliente(void* arg) {
     Servidor& s = *j->servidor;
     std::mt19937 rng(s.cfg.seed + 7919u * static_cast<unsigned>(j->id));
     int espera = std::uniform_int_distribution<int>(0, s.cfg.llegada_max_ms)(rng);
-    std::this_thread::sleep_for(std::chrono::milliseconds(espera));
 
-    registro_escribir("Jugador " + std::to_string(j->id) + " llega al torneo\n");
+    timespec limite;
+    clock_gettime(CLOCK_MONOTONIC, &limite);
+    limite.tv_sec += espera / 1000;
+    limite.tv_nsec += static_cast<long>(espera % 1000) * 1000000L;
+    if (limite.tv_nsec >= 1000000000L) {
+        limite.tv_sec += 1;
+        limite.tv_nsec -= 1000000000L;
+    }
 
     pthread_mutex_lock(&s.candado);
+    while (!s.apagado) {
+        if (pthread_cond_timedwait(&s.apagar, &s.candado, &limite) == ETIMEDOUT) {
+            break;
+        }
+    }
+    if (s.apagado) {
+        pthread_mutex_unlock(&s.candado);
+        registro_escribir("Jugador " + std::to_string(j->id) + " no entra: el torneo esta cerrando\n");
+        return nullptr;
+    }
+    registro_escribir("Jugador " + std::to_string(j->id) + " llega al torneo\n");
     s.cola.push_back(j->id);
+
     s.llegados++;
     pthread_cond_signal(&s.llegada);
     pthread_mutex_unlock(&s.candado);
@@ -135,11 +157,17 @@ void torneo_ejecutar(int n, int m, const Config& cfg) {
     s.n = n;
     pthread_mutex_init(&s.candado, nullptr);
     pthread_cond_init(&s.llegada, nullptr);
+    pthread_condattr_t attr;
+    pthread_condattr_init(&attr);
+    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+    pthread_cond_init(&s.apagar, &attr);
+    pthread_condattr_destroy(&attr);
     sem_init(&s.mesas, 0, static_cast<unsigned int>(m));
 
     if (!senales_iniciar(interrumpir, &s)) {
         registro_escribir("Error: no se pudo iniciar el manejo de senales\n");
         sem_destroy(&s.mesas);
+        pthread_cond_destroy(&s.apagar);
         pthread_cond_destroy(&s.llegada);
         pthread_mutex_destroy(&s.candado);
         return;
@@ -246,6 +274,7 @@ void torneo_ejecutar(int n, int m, const Config& cfg) {
         pthread_mutex_destroy(&jugadores[i].candado);
     }
     sem_destroy(&s.mesas);
+    pthread_cond_destroy(&s.apagar);
     pthread_cond_destroy(&s.llegada);
     pthread_mutex_destroy(&s.candado);
 }

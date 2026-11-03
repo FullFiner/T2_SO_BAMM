@@ -1,6 +1,8 @@
 #include "partida.hpp"
 
 #include <chrono>
+#include <cerrno>
+#include <ctime>
 #include <iostream>
 #include <random>
 #include <string>
@@ -41,6 +43,22 @@ static void terminar(Partida& p, Resultado r) {
         p.terminada = true;
         p.resultado = r;
         pthread_cond_broadcast(&p.cambio);
+    }
+}
+
+static void esperar_turno(Partida& p, int ms) {
+    timespec limite;
+    clock_gettime(CLOCK_MONOTONIC, &limite);
+    limite.tv_sec += ms / 1000;
+    limite.tv_nsec += static_cast<long>(ms % 1000) * 1000000L;
+    if (limite.tv_nsec >= 1000000000L) {
+        limite.tv_sec += 1;
+        limite.tv_nsec -= 1000000000L;
+    }
+    while (!p.terminada) {
+        if (pthread_cond_timedwait(&p.cambio, &p.candado, &limite) == ETIMEDOUT) {
+            break;
+        }
     }
 }
 
@@ -109,21 +127,19 @@ static void turno_puma(Partida& p, std::mt19937& rng) {
 }
 
 
-// Cada ficha es un hilo: espera un retardo al azar, toma el candado, intenta
-// su jugada, revisa si la partida terminó y suelta el candado.
+
 static void* hilo_ficha(void* arg) {
     ArgsFicha* a = static_cast<ArgsFicha*>(arg);
     Partida& p = *a->partida;
     int id = a->id;
     std::mt19937 rng(p.cfg.seed + 1000u * static_cast<unsigned>(p.id_mesa) + static_cast<unsigned>(id));
 
+    pthread_mutex_lock(&p.candado);
     while (true) {
         int espera = azar(rng, p.cfg.delay_min_ms, p.cfg.delay_max_ms);
-        std::this_thread::sleep_for(std::chrono::milliseconds(espera));
+        esperar_turno(p, espera);
 
-        pthread_mutex_lock(&p.candado);
         if (p.terminada || (id != 0 && !p.viva[id])) {
-            pthread_mutex_unlock(&p.candado);
             break;
         }
 
@@ -139,8 +155,8 @@ static void* hilo_ficha(void* arg) {
         } else if (p.movimientos >= p.cfg.max_movimientos) {
             terminar(p, Resultado::EMPATE);
         }
-        pthread_mutex_unlock(&p.candado);
     }
+    pthread_mutex_unlock(&p.candado);
     return nullptr;
 }
 
@@ -162,7 +178,11 @@ void partida_iniciar(Partida& p, const Config& cfg, int id_mesa) {
         p.viva[i] = true;
     }
     pthread_mutex_init(&p.candado, nullptr);
-    pthread_cond_init(&p.cambio, nullptr);
+    pthread_condattr_t attr;
+    pthread_condattr_init(&attr);
+    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+    pthread_cond_init(&p.cambio, &attr);
+    pthread_condattr_destroy(&attr);
 }
 
 
