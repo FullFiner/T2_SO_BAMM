@@ -38,6 +38,20 @@ Líneas `clave=valor`. Las que empiezan con `#` son comentarios. Si una línea e
 - `prob_abandono`: porcentaje de mesas donde un jugador se cae a mitad de partida (0 a 100)
 - `puma` y `perros`: posición inicial de las fichas (por defecto el puma en el trono y los perros del 13 al 24)
 
+Las claves que no aparecen quedan con su valor por defecto. Ejemplo de un config:
+
+```
+# retardos de cada ficha
+delay_min_ms=50
+delay_max_ms=300
+seed=12345
+max_movimientos=2000
+log_consola=1
+prob_abandono=0
+puma=27
+perros=13,14,15,16,17,18,19,20,21,22,23,24
+```
+
 Archivos de ejemplo: `config.txt` (normal), `config_prueba.txt` (rápido), `config_abandono.txt` (siempre hay abandono) y `config_disposicion.txt` (otra posición inicial).
 
 ## Tablero
@@ -71,13 +85,23 @@ Líneas del triángulo:
 
 Las fichas se mueven por filas, columnas y las líneas del triángulo. No pusimos diagonales en la cuadrícula.
 
-## Cómo funciona
+## Sincronización
 
-- **Partida:** cada mesa tiene un mutex que protege su tablero. Una ficha espera su retardo, toma el mutex, revisa qué casillas tiene libres, se mueve y lo suelta. Así dos fichas no pueden quedarse con la misma casilla.
-- **Servidor:** los jugadores llegan a una cola y el servidor los saca de a dos. Un semáforo que parte en M controla las mesas: si están todas ocupadas, el par que sigue espera bloqueado hasta que una mesa se libere.
-- **Juez:** cada mesa tiene un hilo juez que prepara el tablero, anota los eventos, ve quién gana y al final libera la mesa.
-- **Abandono:** con `prob_abandono` una ficha muere teniendo el mutex tomado. Una función registrada con `pthread_cleanup_push` suelta el mutex y le da la victoria al otro jugador.
-- **Ctrl+C:** un hilo aparte espera la señal. Cuando llega, ya no entran jugadores nuevos, se avisa a las partidas activas que terminen y se libera todo antes de salir.
+**Un mutex por mesa.** Cada mesa tiene su tablero y un solo mutex que lo protege. Una ficha toma el mutex, revisa qué casillas tiene libres, se mueve y lo suelta. Como revisar y mover pasa con el mutex tomado, dos fichas no pueden quedarse con la misma casilla: la que llega segunda ya la ve ocupada. No usamos un mutex por casilla porque una captura toca tres casillas a la vez, y con varios candados habría que cuidar el orden en que se toman para no caer en un deadlock. Con uno solo ese problema no existe. Lo malo es que dentro de una mesa se mueve una ficha a la vez, pero mover dura muy poco comparado con los 50 a 300 ms que espera cada ficha, así que casi no se nota. Las mesas no comparten tablero, así que entre mesas distintas no se frenan.
+
+**Espera con variable de condición.** El retardo de cada ficha se hace con `pthread_cond_timedwait` y no con sleep. Mientras espera suelta el mutex para que las otras fichas puedan moverse, y si la partida termina o llega un Ctrl+C se despierta altiro en vez de seguir durmiendo.
+
+**Semáforo de mesas.** El semáforo parte en M. Antes de crear una mesa el servidor hace `sem_wait`, y cuando una partida termina la mesa hace `sem_post`. Si las M mesas están ocupadas, el servidor se queda bloqueado en el `sem_wait` sin gastar CPU, que es la espera pasiva que pide el enunciado.
+
+**Cola de jugadores.** Los jugadores llegan a una cola protegida por el mutex del servidor y avisan con una variable de condición. El servidor saca de a dos en orden de llegada (el primero es puma y el segundo perros), así que nadie se queda esperando para siempre. Cada jugador espera en su propia variable de condición hasta que su partida termina.
+
+**Juez.** Cada mesa tiene un hilo juez que prepara el tablero y sus primitivas, anota los eventos, ve quién gana, espera a los 13 hilos con `pthread_join` y al final destruye el mutex y la variable de condición.
+
+**Abandono.** Con `prob_abandono` una ficha muere (`pthread_exit`) teniendo el mutex tomado, lo que dejaría la mesa trancada. Para eso cada ficha registra con `pthread_cleanup_push` una función que se ejecuta cuando el hilo muere: anota el abandono, le da la victoria al otro jugador y suelta el mutex.
+
+**Ctrl+C.** Las señales están bloqueadas en todos los hilos menos en uno que hace `sigwait`. Lo hicimos así porque dentro de un manejador de señales normal no se puede tomar un mutex de forma segura. Cuando llega la señal, ese hilo marca el servidor como apagado, avisa a las partidas activas y hace un `sem_post` por si el servidor estaba esperando una mesa. Después se hace join de todos los hilos y se destruye todo antes de salir.
+
+**Log.** Todos los hilos escriben en el mismo log, así que tiene su propio mutex para que las líneas no se mezclen.
 
 El detalle del diseño y el análisis de deadlock, livelock e inanición están en el informe PDF.
 
