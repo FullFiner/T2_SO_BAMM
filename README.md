@@ -28,7 +28,7 @@ Lo que pasa en las partidas queda en `torneo.log` y, si `log_consola=1`, tambié
 
 ## Config
 
-Líneas `clave=valor`. Las que empiezan con `#` son comentarios. Si una línea está mal, el programa dice cuál es y no parte.
+Líneas `clave=valor`. Las que empiezan con `#` son comentarios. Si una línea está mal (o la clave no existe), el programa dice cuál es y no parte.
 
 - `delay_min_ms`, `delay_max_ms`: retardo de cada movimiento (50 y 300 por defecto)
 - `seed`: semilla para repetir una prueba (si no se pone, es al azar)
@@ -83,7 +83,7 @@ Líneas del triángulo:
 26 - 3
 ```
 
-Las fichas se mueven por filas, columnas y las líneas del triángulo. No pusimos diagonales en la cuadrícula.
+Las fichas se mueven por filas, columnas y las líneas del triángulo. El dibujo de arriba solo muestra la cuadrícula, las conexiones del triángulo son las de la lista (las dos diagonales son 25-0 y 26-4). No pusimos diagonales en la cuadrícula.
 
 ## Sincronización
 
@@ -95,7 +95,7 @@ Las fichas se mueven por filas, columnas y las líneas del triángulo. No pusimo
 
 **Cola de jugadores.** Los jugadores llegan a una cola protegida por el mutex del servidor y avisan con una variable de condición. El servidor saca de a dos en orden de llegada (el primero es puma y el segundo perros), así que nadie se queda esperando para siempre. Cada jugador espera en su propia variable de condición hasta que su partida termina.
 
-**Juez.** Cada mesa tiene un hilo juez que prepara el tablero y sus primitivas, anota los eventos, ve quién gana, espera a los 13 hilos con `pthread_join` y al final destruye el mutex y la variable de condición.
+**Juez.** Cada mesa tiene un hilo juez que prepara el tablero y sus primitivas, anota los eventos, espera a los 13 hilos con `pthread_join`, registra el resultado y al final destruye el mutex y la variable de condición. Las reglas (adyacencia, captura y victoria) las revisan las funciones de `juego.cpp`, que llaman las propias fichas con el mutex de la mesa tomado, así que mover y validar es una sola operación.
 
 **Abandono.** Con `prob_abandono` una ficha muere (`pthread_exit`) teniendo el mutex tomado, lo que dejaría la mesa trancada. Para eso cada ficha registra con `pthread_cleanup_push` una función que se ejecuta cuando el hilo muere: anota el abandono, le da la victoria al otro jugador y suelta el mutex.
 
